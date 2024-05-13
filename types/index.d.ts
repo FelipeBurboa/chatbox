@@ -79,8 +79,8 @@ type FoodOpinionModalState = {
 				value: string;
 			};
 		};
-		spice_level_block: {
-			spice_level: {
+		good_level_block: {
+			good_level: {
 				type: 'static_select';
 				selected_option: {
 					text: {
@@ -191,7 +191,7 @@ type NotionItem = {
 				};
 			}[];
 		};
-		spiceLevel: {
+		goodLevel: {
 			select: {
 				name: string;
 			};
@@ -206,7 +206,7 @@ type NotionItem = {
 
 type NewItem = {
 	opinion: string;
-	spiceLevel: string;
+	goodLevel: string;
 	status?: string;
 	submitter?: string;
 };

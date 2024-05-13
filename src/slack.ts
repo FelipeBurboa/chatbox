@@ -1,137 +1,145 @@
 import type { Handler } from '@netlify/functions';
-
 import { parse } from 'querystring';
-import { blocks, modal, slackApi, verifySlackRequest } from './util/slack';
-import { saveItem } from './util/notion';
+import { slackApi, verifySlackRequest, blocks, modal } from './util/slack';
+import { saveItems } from './util/notion';
 
-async function handleSlashCommand(payload: SlackSlashCommandPayload) {
-	switch (payload.command) {
-		case '/foodfight':
-			const response = await slackApi(
-				'views.open',
+async function handleSlashCommand(payload:SlackSlashCommandPayload){
+	switch(payload.command){
+		case '/bread':
+			const response = await slackApi('views.open',
 				modal({
-					id: 'foodfight-modal',
-					title: 'Start a food fight!',
+					id: 'bread-modal',
+					title: 'Vamos a hablar de pan',
 					trigger_id: payload.trigger_id,
 					blocks: [
 						blocks.section({
-							text: 'The discourse demands food drama! *Send in your spiciest food takes so we can all argue about them and feel alive.*',
+							text: 'Tenemos que empezar por hablar de pan *AHORA*!'
 						}),
 						blocks.input({
 							id: 'opinion',
-							label: 'Deposit your controversial food opinions here.',
-							placeholder:
-								'Example: peanut butter and mayonnaise sandwiches are delicious!',
+							label: '¿Cual es tu pan favorito?',
+							placeholder: 'Ejemplo: Ciabbata Italiana',
 							initial_value: payload.text ?? '',
-							hint: 'What do you believe about food that people find appalling? Say it with your chest!',
+							hint: 'Ingresa tu opinion'
 						}),
 						blocks.select({
-							id: 'spice_level',
-							label: 'How spicy is this opinion?',
-							placeholder: 'Select a spice level',
+							id: 'good_level',
+							label: '¿Cuanto te gusta el pan?',
+							placeholder: 'Elige una opcion',
 							options: [
-								{ label: 'mild', value: 'mild' },
-								{ label: 'medium', value: 'medium' },
-								{ label: 'spicy', value: 'spicy' },
-								{ label: 'nuclear', value: 'nuclear' },
-							],
-						}),
-					],
-				}),
+								{
+									label: 'high',
+									value: 'high'
+								},
+								{
+									label: 'medium',
+									value: 'medium'
+								},
+								{
+									label: 'low',
+									value: 'low'
+								}
+							]
+						})
+					]
+				})
 			);
 
-			if (!response.ok) {
-				console.log(response);
-			}
-
-			break;
+		if(!response.ok){
+			console.log(response);
+		}
+		break;
 
 		default:
-			return {
+			return{
 				statusCode: 200,
-				body: `Command ${payload.command} is not recognized`,
-			};
+				body: `El comando ${payload.command} no existe!`,
+			}
 	}
 
 	return {
 		statusCode: 200,
 		body: '',
-	};
+	}
 }
 
-async function handleInteractivity(payload: SlackModalPayload) {
+async function handleInteractivity(payload:SlackModalPayload){
 	const callback_id = payload.callback_id ?? payload.view.callback_id;
 
-	switch (callback_id) {
-		case 'foodfight-modal':
+	switch(callback_id){
+		case 'bread-modal':
 			const data = payload.view.state.values;
 			const fields = {
-				opinion: data.opinion_block.opinion.value,
-				spiceLevel: data.spice_level_block.spice_level.selected_option.value,
+				opinion: data.opinion_block.opinion?.value,
+				goodLevel: data.good_level_block.good_level?.selected_option?.value,
 				submitter: payload.user.name,
-			};
+			}
 
-			await saveItem(fields);
+		await saveItems(fields);
 
-			await slackApi('chat.postMessage', {
-				channel: 'C0438E823SP',
-				text: `Oh dang, y’all! :eyes: <@${payload.user.id}> just started a food fight with a ${fields.spiceLevel} take:\n\n*${fields.opinion}*\n\n...discuss.`,
-			});
-			break;
+		await slackApi('chat.postMessage', {
+			channel: 'C0731AMTV3M',
+			text: `Gracias por tu opinion :eyes: <@${payload.user.id}>!. Su opinion es que su :bread: favorito es: ${fields.opinion}. \n\n Su nivel de cuanto le gusta el pan es: ${fields.goodLevel}`,
+	})
 
-		case 'start-food-fight-nudge':
-			const channel = payload.channel?.id;
-			const user_id = payload.user.id;
-			const thread_ts = payload.message.thread_ts ?? payload.message.ts;
+		break;
 
-			await slackApi('chat.postMessage', {
-				channel,
-				thread_ts,
-				text: `Hey <@${user_id}>, an opinion like this one deserves a heated public debate. Run the \`/foodfight\` slash command in a main channel to start one!`,
-			});
+		case 'start-bread-talk':
+		const channel = payload.channel?.id;
+		const user_id = payload.user?.id;
+		const thread_ts = payload.message.thread_ts ?? payload.message.ts;
 
-			break;
+		await slackApi('chat.postMessage', {
+			channel,
+			thread_ts,
+			text: `Hey! <@${user_id}>:, recuerda usar nuestro bot para hablar sobre el :bread:!. El comando es \`/bread\` y funciona en el main channel`
+		})
+
+		break;
 
 		default:
-			console.log(`No handler defined for ${payload.view.callback_id}`);
+			console.log('Unhandled callback_id: ', callback_id);
 			return {
 				statusCode: 400,
-				body: `No handler defined for ${payload.view.callback_id}`,
-			};
+				body: 'Unhandled callback_id: ' + callback_id,
+			}
+
+
 	}
 
 	return {
 		statusCode: 200,
 		body: '',
-	};
+	}
 }
 
 export const handler: Handler = async (event) => {
+	// TODO validate the Slack request
 	const valid = verifySlackRequest(event);
 
-	if (!valid) {
-		console.error('invalid request');
+	if(!valid){
+		console.log('Invalid Slack request');
 
 		return {
 			statusCode: 400,
-			body: 'invalid request',
-		};
+			body: 'Invalid Slack request',
+		}
 	}
 
+	// TODO handle slash commands
 	const body = parse(event.body ?? '') as SlackPayload;
-
-	if (body.command) {
+	if(body.command){
 		return handleSlashCommand(body as SlackSlashCommandPayload);
 	}
 
 	// TODO handle interactivity (e.g. context commands, modals)
-	if (body.payload) {
+	if(body.payload){
 		const payload = JSON.parse(body.payload);
 		return handleInteractivity(payload);
 	}
 
 	return {
 		statusCode: 200,
-		body: 'TODO: handle Slack commands and interactivity',
+		body: 'TODO: handle Slack commands and interactivity!!',
 	};
 };
